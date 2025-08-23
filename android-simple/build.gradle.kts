@@ -1,6 +1,11 @@
 plugins {
     id("org.jetbrains.kotlin.jvm")
     id("org.jetbrains.kotlin.plugin.serialization")
+    application
+}
+
+application {
+    mainClass.set("com.example.elysiaapp.MainKt")
 }
 
 dependencies {
