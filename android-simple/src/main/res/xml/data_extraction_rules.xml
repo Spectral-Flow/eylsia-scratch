@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- Exclude network cache -->
+        <exclude domain="file" path="networks/" />
+        <exclude domain="file" path="cache/" />
+    </cloud-backup>
+    
+    <device-transfer>
+        <!-- Exclude temporary files -->
+        <exclude domain="file" path="temp/" />
+        <exclude domain="file" path="cache/" />
+    </device-transfer>
+</data-extraction-rules>
