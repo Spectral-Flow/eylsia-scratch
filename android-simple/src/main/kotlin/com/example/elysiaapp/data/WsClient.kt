@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.time.Duration.Companion.seconds
 
@@ -19,7 +20,19 @@ data class ChatMessage(
     val message: String? = null,
     val text: String? = null,
     val from: String? = null,
-    val timestamp: String
+    val timestamp: String,
+    val id: String? = null,
+    val features: Features? = null,
+    val messages: List<ChatMessage>? = null, // For history
+    val audioData: String? = null, // Base64 encoded audio
+    val originalMessageId: String? = null,
+    val error: String? = null
+)
+
+@Serializable
+data class Features(
+    val voiceEnabled: Boolean,
+    val chatHistory: Boolean
 )
 
 class WsClient {
@@ -102,6 +115,21 @@ class WsClient {
         scope.launch {
             try {
                 session?.send(text)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun sendVoiceRequest(text: String, voiceId: String? = null) {
+        scope.launch {
+            try {
+                val voiceRequest = mapOf(
+                    "type" to "voice-request",
+                    "content" to text,
+                    "voiceId" to voiceId
+                )
+                session?.send(json.encodeToString(voiceRequest))
             } catch (e: Exception) {
                 e.printStackTrace()
             }

@@ -1,0 +1,46 @@
+# Gradle
+.gradle/
+build/
+.gradletasknamecache
+gradle-app.setting
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+.project
+.settings/
+bin/
+gen/
+proguard/
+lint.xml
+local.properties
+
+# Android Studio
+.idea/
+*.iml
+.navigation/
+captures/
+output.json
+
+# NDK
+obj/
+.externalNativeBuild/
+.cxx/
+
+# Keystore files
+*.jks
+*.keystore
+
+# Log Files
+*.log
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

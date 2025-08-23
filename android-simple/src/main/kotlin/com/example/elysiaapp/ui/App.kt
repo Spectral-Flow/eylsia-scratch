@@ -24,6 +24,8 @@ fun App() {
         var apiResponse by remember { mutableStateOf("—") }
         var messageInput by remember { mutableStateOf("") }
         var isConnected by remember { mutableStateOf(false) }
+        var isVoiceEnabled by remember { mutableStateOf(false) }
+        var voiceLoading by remember { mutableStateOf(false) }
 
         val wsClient = remember { WsClient() }
         val messages by wsClient.messages.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -31,6 +33,11 @@ fun App() {
         
         LaunchedEffect(connectionState) {
             isConnected = connectionState
+        }
+
+        // Check voice availability on startup
+        LaunchedEffect(Unit) {
+            isVoiceEnabled = ApiClient.isVoiceAvailable()
         }
 
         val listState = rememberLazyListState()
@@ -45,7 +52,19 @@ fun App() {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Elysia Demo") },
+                    title = { 
+                        Column {
+                            Text("Elysia Demo")
+                            Text(
+                                "Voice: ${if (isVoiceEnabled) "Enabled" else "Disabled"}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isVoiceEnabled) 
+                                    MaterialTheme.colorScheme.primary 
+                                else 
+                                    MaterialTheme.colorScheme.error
+                            )
+                        }
+                    },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                         titleContentColor = MaterialTheme.colorScheme.primary,
@@ -78,9 +97,11 @@ fun App() {
                                     apiResponse = "Loading..."
                                     val result = ApiClient.sayHello("Richie")
                                     apiResponse = result.fold(
-                                        onSuccess = { "${it.message} (${it.timestamp})" },
+                                        onSuccess = { "${it.message} (${it.timestamp}) - Voice: ${it.voiceEnabled}" },
                                         onFailure = { "Error: ${it.message}" }
                                     )
+                                    // Update voice status
+                                    isVoiceEnabled = ApiClient.isVoiceAvailable()
                                 }
                             },
                             modifier = Modifier.fillMaxWidth()
@@ -92,6 +113,58 @@ fun App() {
                             text = "Response: $apiResponse",
                             style = MaterialTheme.typography.bodyMedium
                         )
+                    }
+                }
+
+                // Voice Testing Section
+                if (isVoiceEnabled) {
+                    Card {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Voice Synthesis",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            
+                            Button(
+                                onClick = {
+                                    if (!voiceLoading) {
+                                        scope.launch {
+                                            voiceLoading = true
+                                            try {
+                                                val result = ApiClient.synthesizeVoice(
+                                                    ApiClient.VoiceSynthesisRequest(
+                                                        text = "Hello from Android app! This is a voice synthesis test."
+                                                    )
+                                                )
+                                                result.fold(
+                                                    onSuccess = { 
+                                                        // Voice synthesis successful
+                                                        // In a real app, you would play the audio here
+                                                    },
+                                                    onFailure = { 
+                                                        // Handle error
+                                                    }
+                                                )
+                                            } finally {
+                                                voiceLoading = false
+                                            }
+                                        }
+                                    }
+                                },
+                                enabled = !voiceLoading,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                if (voiceLoading) {
+                                    Text("Synthesizing...")
+                                } else {
+                                    Text("Test Voice Synthesis")
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -159,6 +232,21 @@ fun App() {
                             ) {
                                 Text("Send")
                             }
+
+                            // Voice button
+                            if (isVoiceEnabled) {
+                                Button(
+                                    onClick = {
+                                        if (messageInput.isNotBlank()) {
+                                            wsClient.sendVoiceRequest(messageInput)
+                                            messageInput = ""
+                                        }
+                                    },
+                                    enabled = isConnected && messageInput.isNotBlank()
+                                ) {
+                                    Text("🎤")
+                                }
+                            }
                         }
 
                         // Messages list
@@ -201,6 +289,9 @@ private fun MessageItem(message: ChatMessage) {
         colors = CardDefaults.cardColors(
             containerColor = when (message.type) {
                 "system" -> MaterialTheme.colorScheme.secondaryContainer
+                "voice-response" -> MaterialTheme.colorScheme.primaryContainer
+                "voice-error" -> MaterialTheme.colorScheme.errorContainer
+                "history" -> MaterialTheme.colorScheme.tertiaryContainer
                 else -> MaterialTheme.colorScheme.surfaceVariant
             }
         )
@@ -213,7 +304,12 @@ private fun MessageItem(message: ChatMessage) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = message.from ?: message.type,
+                    text = when (message.type) {
+                        "voice-response" -> "🎤 Voice Response"
+                        "voice-error" -> "❌ Voice Error"
+                        "history" -> "📚 History"
+                        else -> message.from ?: message.type
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -222,10 +318,66 @@ private fun MessageItem(message: ChatMessage) {
                     style = MaterialTheme.typography.labelSmall
                 )
             }
-            Text(
-                text = message.message ?: message.text ?: "",
-                style = MaterialTheme.typography.bodyMedium
-            )
+            
+            when (message.type) {
+                "history" -> {
+                    message.messages?.forEach { historyMessage ->
+                        Text(
+                            text = "• ${historyMessage.text ?: historyMessage.message ?: ""}",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                }
+                "voice-response" -> {
+                    Text(
+                        text = "Voice synthesis completed",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    if (message.audioData != null) {
+                        Text(
+                            text = "Audio data received (${message.audioData.length} chars)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                "voice-error" -> {
+                    Text(
+                        text = message.error ?: "Voice synthesis failed",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                else -> {
+                    Text(
+                        text = message.message ?: message.text ?: "",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+            
+            // Show voice features if available
+            message.features?.let { features ->
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (features.voiceEnabled) {
+                        Text(
+                            text = "🎤 Voice",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    if (features.chatHistory) {
+                        Text(
+                            text = "📚 History",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                }
+            }
         }
     }
 }
