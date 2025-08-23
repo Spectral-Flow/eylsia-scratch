@@ -1,10 +1,26 @@
-# Elysia Full-Stack Demo
+# Elysia Full-Stack Demo with Voice Integration
 
 A modern full-stack demo application showcasing the latest technologies:
 
-- **Backend**: Elysia (latest) on Bun (latest) with TypeScript
-- **Frontend**: Android app with Kotlin, Jetpack Compose, and Material 3
+- **Backend**: Elysia (latest) with ElevenLabs voice synthesis, WebSocket chat, and TypeScript
+- **Frontend**: Android app with Kotlin, Jetpack Compose, Material 3, and voice controls
 - **Infrastructure**: Docker, GitHub Actions CI/CD, automated dependency updates
+
+## ✨ New Features
+
+### 🎤 ElevenLabs Voice Integration
+- **Professional Voice Synthesis**: Convert text to natural speech using ElevenLabs AI
+- **Real-time Voice Chat**: Send messages and receive voice responses via WebSocket
+- **Multiple Voice Models**: Support for different ElevenLabs voices and settings
+- **Android Voice Controls**: Voice synthesis buttons and status indicators
+- **Robust Error Handling**: Circuit breakers, retries, and graceful degradation
+
+### 🚀 Enhanced Architecture
+- **Modular Services**: Clean separation of concerns with dedicated service classes
+- **Advanced Error Handling**: Custom error types, retry logic, and circuit breakers
+- **Professional Logging**: Structured logging with request tracking and metrics
+- **Configuration Management**: Environment-based config with validation
+- **Health Monitoring**: Comprehensive service status and dependency checking
 
 ## 🚀 Quick Start
 
@@ -24,21 +40,37 @@ bun run dev
 ```
 
 The server will start at `http://localhost:3000` with:
-- Health endpoint: `GET /health`
-- Hello API: `GET /api/hello?name=YourName`
-- WebSocket chat: `ws://localhost:3000/ws`
-- Swagger docs: `http://localhost:3000/swagger`
+- Health endpoint: `GET /health` (enhanced with service status)
+- Hello API: `GET /api/hello?name=YourName` (shows voice capability)
+- Voice synthesis: `POST /api/voice/synthesize` (ElevenLabs integration)
+- Available voices: `GET /api/voice/voices` (list voice models)
+- WebSocket chat: `ws://localhost:3000/ws` (with voice message support)
+- Swagger docs: `http://localhost:3000/swagger` (interactive API docs)
+
+### Setting Up Voice Features
+
+1. Get an ElevenLabs API key from [elevenlabs.io](https://elevenlabs.io/)
+2. Copy the environment template:
+   ```bash
+   cp .env.example .env
+   ```
+3. Add your API key to `.env`:
+   ```bash
+   ELEVENLABS_API_KEY=your_api_key_here
+   ```
+
+Voice features work without an API key (mock mode) for development.
 
 ### Running the Android App
 
 ```bash
-cd android
+cd android-simple
 ./gradlew assembleDebug
 # Install on device/emulator:
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install -r build/outputs/apk/debug/android-simple-debug.apk
 ```
 
-**Note**: The Android app expects the server to be running on `10.0.2.2:3000` (Android emulator localhost mapping).
+**Note**: The Android app expects the server to be running on `10.0.2.2:3000` (Android emulator localhost mapping). The app includes voice synthesis controls that activate when the server has ElevenLabs integration enabled.
 
 ## 🏗️ Project Structure
 
