@@ -1,0 +1,58 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":automergeMinor"
+  ],
+  "schedule": ["at any time"],
+  "labels": ["dependencies"],
+  "assigneesFromCodeOwners": true,
+  "reviewersFromCodeOwners": true,
+  "prHourlyLimit": 10,
+  "prConcurrentLimit": 20,
+  "rangeStrategy": "bump",
+  "bumpVersion": "major",
+  "major": {
+    "dependencyDashboardApproval": true
+  },
+  "packageRules": [
+    {
+      "description": "Auto-merge patch and minor updates for production dependencies",
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
+      "description": "Group all non-major updates",
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "all non-major dependencies",
+      "groupSlug": "all-minor-patch"
+    },
+    {
+      "description": "Group Kotlin ecosystem updates",
+      "matchPackagePatterns": ["kotlin", "kotlinx", "jetbrains"],
+      "groupName": "Kotlin ecosystem"
+    },
+    {
+      "description": "Group Android ecosystem updates",
+      "matchPackagePatterns": ["androidx", "android", "compose"],
+      "groupName": "Android ecosystem"
+    },
+    {
+      "description": "Group Elysia ecosystem updates",
+      "matchPackagePatterns": ["elysia", "@elysiajs"],
+      "groupName": "Elysia ecosystem"
+    },
+    {
+      "description": "Group Ktor ecosystem updates",
+      "matchPackagePatterns": ["ktor"],
+      "groupName": "Ktor ecosystem"
+    }
+  ],
+  "platformAutomerge": true,
+  "ignoreDeps": [],
+  "vulnerabilityAlerts": {
+    "enabled": true
+  }
+}
