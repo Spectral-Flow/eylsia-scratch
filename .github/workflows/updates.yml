@@ -1,0 +1,108 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  update-server-dependencies:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Update server dependencies
+      working-directory: ./server
+      run: |
+        bun update
+        bun install
+
+    - name: Check for server dependency changes
+      id: server-changes
+      run: |
+        if git diff --quiet server/package.json server/bun.lockb; then
+          echo "changes=false" >> $GITHUB_OUTPUT
+        else
+          echo "changes=true" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create server PR
+      if: steps.server-changes.outputs.changes == 'true'
+      uses: peter-evans/create-pull-request@v6
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: 'chore(server): update dependencies'
+        title: '🔧 Update server dependencies'
+        body: |
+          Automated dependency update for server packages.
+          
+          - Updated all dependencies to latest versions
+          - Please review and test before merging
+        branch: update-server-deps
+        base: main
+        delete-branch: true
+
+  update-android-dependencies:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Make gradlew executable
+      working-directory: ./android
+      run: chmod +x gradlew
+
+    - name: Update Android Gradle Plugin and dependencies
+      working-directory: ./android
+      run: |
+        # Use Gradle version catalog updater
+        ./gradlew versionCatalogUpdate
+        ./gradlew wrapper --gradle-version=8.11.1
+
+    - name: Check for Android dependency changes
+      id: android-changes
+      run: |
+        if git diff --quiet android/gradle/libs.versions.toml android/gradle/wrapper/gradle-wrapper.properties; then
+          echo "changes=false" >> $GITHUB_OUTPUT
+        else
+          echo "changes=true" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create Android PR
+      if: steps.android-changes.outputs.changes == 'true'
+      uses: peter-evans/create-pull-request@v6
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: 'chore(android): update dependencies'
+        title: '🔧 Update Android dependencies'
+        body: |
+          Automated dependency update for Android project.
+          
+          - Updated Gradle version catalog
+          - Updated Gradle wrapper
+          - Please review and test before merging
+        branch: update-android-deps
+        base: main
+        delete-branch: true

@@ -1,0 +1,99 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "UTC",
+  "schedule": ["before 4am"],
+  "automerge": false,
+  "platformAutomerge": false,
+  "rebaseWhen": "conflicted",
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "🔧 Dependency Dashboard",
+  "assignees": ["@me"],
+  "reviewers": ["@me"],
+  "labels": ["dependencies"],
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "separateMajorMinor": true,
+  "separateMultipleMajor": true,
+  "rangeStrategy": "bump",
+  "bumpVersion": "patch",
+  "packageRules": [
+    {
+      "description": "Auto-merge non-major updates for stable dependencies",
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchPackageNames": [
+        "androidx.compose:compose-bom",
+        "org.jetbrains.kotlin:kotlin-stdlib",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-*",
+        "androidx.lifecycle:*",
+        "androidx.activity:*",
+        "androidx.navigation:*"
+      ],
+      "automerge": true
+    },
+    {
+      "description": "Group all Compose dependencies",
+      "matchPackagePatterns": ["androidx.compose.*"],
+      "groupName": "Compose",
+      "reviewers": ["@me"]
+    },
+    {
+      "description": "Group all Kotlin dependencies",
+      "matchPackagePatterns": ["org.jetbrains.kotlin.*", "org.jetbrains.kotlinx.*"],
+      "groupName": "Kotlin",
+      "reviewers": ["@me"]
+    },
+    {
+      "description": "Group all Ktor dependencies",
+      "matchPackagePatterns": ["io.ktor.*"],
+      "groupName": "Ktor",
+      "reviewers": ["@me"]
+    },
+    {
+      "description": "Android Gradle Plugin updates",
+      "matchPackageNames": ["com.android.application", "com.android.library"],
+      "groupName": "Android Gradle Plugin",
+      "reviewers": ["@me"],
+      "schedule": ["before 6am on monday"]
+    },
+    {
+      "description": "Elysia framework updates",
+      "matchPackageNames": ["elysia"],
+      "groupName": "Elysia",
+      "reviewers": ["@me"]
+    },
+    {
+      "description": "TypeScript and Node.js updates",
+      "matchPackageNames": ["typescript", "@types/bun", "@biomejs/biome"],
+      "groupName": "TypeScript tooling",
+      "reviewers": ["@me"]
+    },
+    {
+      "description": "Major updates require manual review",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "schedule": ["before 6am on monday"],
+      "reviewers": ["@me"],
+      "addLabels": ["major-update"]
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "automerge": true,
+    "schedule": ["at any time"],
+    "addLabels": ["security"]
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 4am on monday"],
+    "commitMessageAction": "Lock file maintenance"
+  },
+  "gradle": {
+    "enabled": true,
+    "timeout": 300
+  },
+  "npm": {
+    "enabled": true
+  }
+}

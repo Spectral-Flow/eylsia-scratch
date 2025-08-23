@@ -1,0 +1,90 @@
+name: Server CI
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths: [ 'server/**' ]
+  pull_request:
+    branches: [ main ]
+    paths: [ 'server/**' ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Install dependencies
+      working-directory: ./server
+      run: bun install --frozen-lockfile
+
+    - name: Type check
+      working-directory: ./server
+      run: bun run typecheck
+
+    - name: Lint code
+      working-directory: ./server
+      run: bun run lint
+
+    - name: Run tests
+      working-directory: ./server
+      run: bun test
+
+    - name: Build application
+      working-directory: ./server
+      run: bun run build
+
+    - name: Build Docker image
+      run: |
+        docker build -t elysia-server:latest ./server
+        docker build -t elysia-server:${{ github.sha }} ./server
+
+    - name: Start server for health check
+      working-directory: ./server
+      run: |
+        bun run start &
+        sleep 10
+        curl -f http://localhost:3000/api/health || exit 1
+        pkill -f "bun run start"
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: server-build-${{ github.sha }}
+        path: server/dist/
+
+  docker-push:
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v6
+      with:
+        context: ./server
+        push: true
+        tags: |
+          ${{ secrets.DOCKER_USERNAME }}/elysia-server:latest
+          ${{ secrets.DOCKER_USERNAME }}/elysia-server:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max

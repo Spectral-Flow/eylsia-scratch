@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Elysia App</string>
+    <string name="ping_server">Ping Server</string>
+    <string name="chat_title">Chat</string>
+    <string name="message_hint">Type a message...</string>
+    <string name="send">Send</string>
+    <string name="error_network">Network error occurred</string>
+    <string name="connecting">Connecting...</string>
+    <string name="connected">Connected</string>
+    <string name="disconnected">Disconnected</string>
+</resources>
