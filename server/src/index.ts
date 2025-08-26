@@ -17,6 +17,7 @@ import { logger } from './logger';
 // TypeScript interfaces for WebSocket and Chat
 interface WebSocketClient {
   send: (data: string) => void;
+  close?: () => void;
   readyState?: number;
 }
 
@@ -412,9 +413,9 @@ const app = new Elysia()
           messageStr: messageStr,
         });
 
-        const userMessage = {
+        const userMessage: ChatHistoryMessage = {
           type: 'message',
-          from: 'user',
+          from: 'user' as const,
           text: parsedMessage.content || messageStr,
           timestamp: new Date().toISOString(),
           id: crypto.randomUUID(),
@@ -462,9 +463,9 @@ const app = new Elysia()
             });
 
             if (llmResponse.success && llmResponse.message) {
-              const assistantMessage = {
+              const assistantMessage: ChatHistoryMessage = {
                 type: 'message',
-                from: 'assistant',
+                from: 'assistant' as const,
                 text: llmResponse.message,
                 timestamp: new Date().toISOString(),
                 id: crypto.randomUUID(),
@@ -586,7 +587,7 @@ const gracefulShutdown = () => {
           timestamp: new Date().toISOString(),
         })
       );
-      client.close();
+      client.close?.();
     } catch (_error) {
       // Ignore errors during shutdown
     }

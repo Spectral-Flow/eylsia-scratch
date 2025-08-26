@@ -131,7 +131,7 @@ export class LLMService {
       const hasModel = data.models?.some((m: OllamaModel) => m.name.includes(this.config.model));
 
       return {
-        available: hasModel,
+        available: hasModel || false,
         model: this.config.model,
         error: hasModel ? undefined : `Model ${this.config.model} not found`,
       };
