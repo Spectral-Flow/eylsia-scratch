@@ -1,0 +1,72 @@
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+
+# Development files
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# Runtime data
+pids
+logs
+.npm
+.eslintcache
+
+# Coverage directory used by tools like istanbul
+coverage
+.nyc_output
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons
+build/Release
+
+# Dependency directories
+jspm_packages/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env*
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# IDE
+*.swp
+*.swo
+*.tmp
+
+# Testing
+coverage/
+test-results/
+
+# Git
+.git
+.gitignore
+README.md
+CHANGELOG.md

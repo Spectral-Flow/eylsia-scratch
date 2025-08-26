@@ -56,7 +56,7 @@ export async function withRetry<T>(
     baseDelay?: number;
     maxDelay?: number;
     backoffFactor?: number;
-    retryCondition?: (error: any) => boolean;
+    retryCondition?: (error: unknown) => boolean;
   } = {}
 ): Promise<T> {
   const {
@@ -67,7 +67,7 @@ export async function withRetry<T>(
     retryCondition = (error) => !(error instanceof AppError && error.isOperational),
   } = options;
 
-  let lastError: any;
+  let lastError: unknown;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -162,7 +162,7 @@ export class CircuitBreaker {
 /**
  * Safe async wrapper that catches and logs errors
  */
-export function safeAsync<T extends any[], R>(
+export function safeAsync<T extends unknown[], R>(
   fn: (...args: T) => Promise<R>
 ): (...args: T) => Promise<R | undefined> {
   return async (...args: T): Promise<R | undefined> => {
@@ -188,4 +188,71 @@ export async function withTimeout<T>(
   });
 
   return Promise.race([operation, timeoutPromise]);
+}
+
+/**
+ * Simple rate limiter for API endpoints
+ */
+export class RateLimiter {
+  private requests = new Map<string, number[]>();
+
+  constructor(
+    private maxRequests: number = 100,
+    private windowMs: number = 60000 // 1 minute
+  ) {}
+
+  /**
+   * Check if request should be allowed
+   * @param key - Usually IP address or user ID
+   * @returns true if request is allowed, false if rate limited
+   */
+  isAllowed(key: string): boolean {
+    const now = Date.now();
+    const windowStart = now - this.windowMs;
+
+    // Get existing requests for this key
+    const requests = this.requests.get(key) || [];
+
+    // Filter out old requests outside the window
+    const recentRequests = requests.filter((time) => time > windowStart);
+
+    // Check if under limit
+    if (recentRequests.length >= this.maxRequests) {
+      return false;
+    }
+
+    // Add current request
+    recentRequests.push(now);
+    this.requests.set(key, recentRequests);
+
+    return true;
+  }
+
+  /**
+   * Get remaining requests for a key
+   */
+  getRemaining(key: string): number {
+    const now = Date.now();
+    const windowStart = now - this.windowMs;
+    const requests = this.requests.get(key) || [];
+    const recentRequests = requests.filter((time) => time > windowStart);
+    return Math.max(0, this.maxRequests - recentRequests.length);
+  }
+
+  /**
+   * Clean up old entries to prevent memory leaks
+   */
+  cleanup(): void {
+    const now = Date.now();
+    const windowStart = now - this.windowMs;
+
+    for (const [key, requests] of this.requests.entries()) {
+      const recentRequests = requests.filter((time) => time > windowStart);
+      if (recentRequests.length === 0) {
+        this.requests.delete(key);
+      } else {
+        this.requests.set(key, recentRequests);
+      }
+    }
+  }
 }

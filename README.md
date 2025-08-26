@@ -9,18 +9,22 @@ A modern full-stack demo application showcasing the latest technologies:
 ## ✨ New Features
 
 ### 🎤 ElevenLabs Voice Integration
-- **Professional Voice Synthesis**: Convert text to natural speech using ElevenLabs AI
+- **Real ElevenLabs API Integration**: Full integration with ElevenLabs text-to-speech API
+- **Professional Voice Synthesis**: Convert text to natural speech with customizable settings
 - **Real-time Voice Chat**: Send messages and receive voice responses via WebSocket
+- **Voice Caching**: Intelligent caching system reduces API calls and improves performance
 - **Multiple Voice Models**: Support for different ElevenLabs voices and settings
 - **Android Voice Controls**: Voice synthesis buttons and status indicators
-- **Robust Error Handling**: Circuit breakers, retries, and graceful degradation
+- **Graceful Fallback**: Automatic fallback to mock mode when API is unavailable
 
-### 🚀 Enhanced Architecture
+### 🚀 Enhanced Architecture & Performance
 - **Modular Services**: Clean separation of concerns with dedicated service classes
 - **Advanced Error Handling**: Custom error types, retry logic, and circuit breakers
-- **Professional Logging**: Structured logging with request tracking and metrics
-- **Configuration Management**: Environment-based config with validation
+- **Professional Logging**: Structured logging with request tracking and performance metrics
+- **Rate Limiting**: Production-grade rate limiting with configurable thresholds
+- **Configuration Management**: Environment-based config with comprehensive validation
 - **Health Monitoring**: Comprehensive service status and dependency checking
+- **Performance Optimizations**: Caching, cleanup routines, and memory management
 
 ## 🚀 Quick Start
 
@@ -135,14 +139,19 @@ docker run -p 3000:3000 elysia-demo
 
 ### Backend (Elysia/Bun)
 - ✅ REST API with JSON schema validation
-- ✅ WebSocket real-time chat
+- ✅ WebSocket real-time chat with voice integration
+- ✅ **ElevenLabs voice synthesis** with real API integration
+- ✅ **Production-grade rate limiting** with configurable thresholds
+- ✅ **Advanced error handling** with circuit breakers and retries
+- ✅ **Performance monitoring** with logging metrics and health checks
+- ✅ **Intelligent caching** for voice API responses
 - ✅ CORS support for cross-origin requests
-- ✅ Structured logging with request IDs
-- ✅ Basic authentication stub (Bearer token)
+- ✅ Structured logging with request IDs and performance tracking
+- ✅ Enhanced authentication middleware
 - ✅ Swagger/OpenAPI documentation
-- ✅ Error handling middleware
-- ✅ Health check endpoint
-- ✅ Docker containerization
+- ✅ Comprehensive error handling middleware
+- ✅ Enhanced health check endpoint with service monitoring
+- ✅ Docker containerization with optimized builds
 
 ### Android App (Kotlin/Compose)
 - ✅ Material 3 design system

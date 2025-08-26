@@ -1,11 +1,14 @@
-# Deployment Guide
+# Production Deployment Guide
+
+This guide covers deploying the enhanced Spectra web application with full ElevenLabs integration, performance optimizations, and production-ready features.
 
 ## Prerequisites
 
 - **Bun** runtime: [Install from bun.sh](https://bun.sh/)
 - **Java 17+**: For Android development
 - **Android Studio**: For building Android app
-- **Docker** (optional): For containerized deployment
+- **Docker** (recommended): For containerized deployment
+- **ElevenLabs API Key**: For voice synthesis features
 
 ## Server Deployment
 
@@ -19,6 +22,12 @@ cp .env.example .env
 bun run dev
 ```
 
+The development server includes:
+- Debug logging enabled
+- Higher rate limits (1000 req/min)
+- Enhanced error reporting
+- Hot reload support
+
 ### Production
 
 ```bash
@@ -28,28 +37,44 @@ bun run build
 NODE_ENV=production bun run start
 ```
 
-### Docker Deployment
+Production mode features:
+- Optimized logging (info level)
+- Production rate limiting (100 req/min)
+- Enhanced security warnings
+- Performance monitoring
+
+### Docker Deployment (Recommended)
+
+The Docker setup now uses multi-stage builds for optimization:
 
 ```bash
 cd server
-docker build -t elysia-voice-app .
-docker run -p 3000:3000 \
-  -e ELEVENLABS_API_KEY=your_key \
-  -e NODE_ENV=production \
-  elysia-voice-app
+docker build -t spectra-server .
+docker run -d \
+  --name spectra-server \
+  -p 3000:3000 \
+  --env-file .env \
+  spectra-server
 ```
 
 ### Environment Variables
 
-Required for production:
+**Required for production:**
 - `NODE_ENV=production`
 - `PORT=3000` (or your preferred port)
-- `ELEVENLABS_API_KEY=your_api_key` (for voice features)
 
-Optional:
-- `ELEVENLABS_VOICE_ID=voice_id` (default voice)
-- `ALLOWED_ORIGINS=https://yourdomain.com` (CORS)
-- `LOG_LEVEL=info` (logging level)
+**Voice Integration:**
+- `ELEVENLABS_API_KEY=your_api_key` (for voice features)
+- `ELEVENLABS_VOICE_ID=voice_id` (default voice, optional)
+
+**Security & Performance:**
+- `ALLOWED_ORIGINS=https://yourdomain.com` (CORS configuration)
+- `LOG_LEVEL=info` (production logging level)
+
+**LLM Integration:**
+- `LLM_ENDPOINT=http://localhost:11434` (Ollama endpoint)
+- `LLM_MODEL=llama3.2` (model name)
+- `LLM_ENABLED=true` (enable/disable LLM)
 
 ## Android App Deployment
 
@@ -119,20 +144,79 @@ private const val BASE_URL = "https://your-production-server.com"
 - [ ] Set up monitoring and alerts
 - [ ] Regular security updates
 
-## Monitoring
+## Monitoring & Health Checks
 
-### Health Endpoints
+### Enhanced Health Endpoint
 
-- `GET /health` - Basic health check
-- Monitor response time and availability
-- Check service dependencies status
+The `/health` endpoint now provides comprehensive monitoring:
+
+```bash
+curl http://localhost:3000/health
+```
+
+Response includes:
+- **Service Status**: ElevenLabs and LLM availability
+- **Circuit Breaker States**: Real-time failure detection
+- **System Metrics**: Memory usage, uptime, Node.js version
+- **Logging Metrics**: Error rates and log message counts
+- **Performance Data**: Request tracking and response times
+
+Example response:
+```json
+{
+  "status": "ok",
+  "services": {
+    "elevenLabs": {
+      "available": true,
+      "circuitBreaker": { "state": "CLOSED", "failureCount": 0 }
+    },
+    "llm": {
+      "available": true,
+      "model": "llama3.2",
+      "circuitBreaker": { "state": "CLOSED", "failureCount": 0 }
+    }
+  },
+  "logging": {
+    "metrics": { "debug": 0, "info": 15, "warn": 2, "error": 0 }
+  },
+  "system": {
+    "nodeVersion": "v20.x.x",
+    "platform": "linux",
+    "memory": { "rss": 128000000, "heapUsed": 64000000 }
+  }
+}
+```
+
+### Performance Features
+
+**Voice Response Caching:**
+- 5-minute TTL for voice API responses
+- Reduces ElevenLabs API calls and costs
+- Automatic cache cleanup prevents memory leaks
+
+**Rate Limiting:**
+- Production: 100 requests/minute per IP
+- Development: 1000 requests/minute per IP
+- Automatic cleanup of old rate limit data
+- Rate limit headers in responses
+
+**Circuit Breakers:**
+- ElevenLabs API: 5 failures trigger 60-second cooldown
+- LLM API: 3 failures trigger 30-second cooldown
+- Automatic recovery when services restore
 
 ### Logging
 
-Server includes structured logging with request IDs:
-- Error tracking
-- Performance monitoring
-- User behavior analytics
+Enhanced structured logging with metrics:
+```bash
+# Follow logs in Docker
+docker logs -f spectra-server
+
+# Check error patterns
+grep "ERROR" logs/app.log
+grep "Circuit breaker" logs/app.log
+grep "Rate limit" logs/app.log
+```
 
 ### Metrics
 

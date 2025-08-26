@@ -17,6 +17,22 @@ export interface LLMResponse {
   error?: string;
 }
 
+interface OllamaMessage {
+  content: string;
+}
+
+interface OllamaResponse {
+  message?: OllamaMessage;
+}
+
+interface OllamaModel {
+  name: string;
+}
+
+interface OllamaTagsResponse {
+  models?: OllamaModel[];
+}
+
 export class LLMService {
   private config: LLMConfig;
 
@@ -28,7 +44,10 @@ export class LLMService {
     return this.config.enabled;
   }
 
-  async generateResponse(userMessage: string, conversationHistory: ChatMessage[] = []): Promise<LLMResponse> {
+  async generateResponse(
+    userMessage: string,
+    conversationHistory: ChatMessage[] = []
+  ): Promise<LLMResponse> {
     if (!this.isAvailable()) {
       return {
         success: false,
@@ -39,7 +58,10 @@ export class LLMService {
     try {
       // Prepare messages for the LLM
       const messages: ChatMessage[] = [
-        { role: 'system', content: 'You are a helpful assistant. Keep responses concise and friendly.' },
+        {
+          role: 'system',
+          content: 'You are a helpful assistant. Keep responses concise and friendly.',
+        },
         ...conversationHistory.slice(-10), // Keep last 10 messages for context
         { role: 'user', content: userMessage },
       ];
@@ -67,7 +89,7 @@ export class LLMService {
         throw new Error(`LLM API error: ${response.status} ${response.statusText}`);
       }
 
-      const data = await response.json() as any;
+      const data = (await response.json()) as OllamaResponse;
 
       if (data.message?.content) {
         logger.info('LLM response received', {
@@ -83,7 +105,7 @@ export class LLMService {
       }
     } catch (error) {
       logger.error('LLM request failed', error);
-      
+
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown LLM error',
@@ -105,11 +127,11 @@ export class LLMService {
         throw new Error(`Health check failed: ${response.status}`);
       }
 
-      const data = await response.json() as any;
-      const hasModel = data.models?.some((m: any) => m.name.includes(this.config.model));
+      const data = (await response.json()) as OllamaTagsResponse;
+      const hasModel = data.models?.some((m: OllamaModel) => m.name.includes(this.config.model));
 
       return {
-        available: hasModel,
+        available: hasModel || false,
         model: this.config.model,
         error: hasModel ? undefined : `Model ${this.config.model} not found`,
       };

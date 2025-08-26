@@ -55,15 +55,43 @@ export function loadConfig(): Config {
  */
 export function validateConfig(config: Config): void {
   const errors: string[] = [];
+  const warnings: string[] = [];
 
+  // Port validation
   if (!config.port || config.port < 1 || config.port > 65535) {
     errors.push('PORT must be a valid port number (1-65535)');
   }
 
-  if (config.nodeEnv === 'production' && !config.elevenLabs.apiKey) {
-    errors.push('ELEVENLABS_API_KEY is required in production');
+  // Production-specific validations
+  if (config.nodeEnv === 'production') {
+    if (!config.elevenLabs.apiKey) {
+      warnings.push('ELEVENLABS_API_KEY not set - voice features will be disabled in production');
+    }
+
+    if (config.logging.level === 'debug') {
+      warnings.push('Debug logging enabled in production - consider using "info" or "warn"');
+    }
   }
 
+  // Security validations
+  if (config.security.allowedOrigins.includes('*')) {
+    warnings.push('CORS configured to allow all origins - consider restricting for security');
+  }
+
+  // LLM endpoint validation
+  if (config.llm.enabled && !config.llm.endpoint) {
+    errors.push('LLM_ENDPOINT is required when LLM is enabled');
+  }
+
+  // Log warnings
+  if (warnings.length > 0) {
+    console.warn('Configuration warnings:');
+    for (const warning of warnings) {
+      console.warn(`  - ${warning}`);
+    }
+  }
+
+  // Throw errors
   if (errors.length > 0) {
     throw new Error(`Configuration validation failed:\n${errors.join('\n')}`);
   }
