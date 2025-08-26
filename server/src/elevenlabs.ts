@@ -27,9 +27,9 @@ export interface VoiceSynthesisResponse {
 }
 
 /**
- * Mock voice for development
+ * Voice interface for ElevenLabs voices
  */
-interface Voice {
+export interface Voice {
   voice_id: string;
   name: string;
   category: string;

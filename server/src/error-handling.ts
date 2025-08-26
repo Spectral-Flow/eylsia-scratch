@@ -56,7 +56,7 @@ export async function withRetry<T>(
     baseDelay?: number;
     maxDelay?: number;
     backoffFactor?: number;
-    retryCondition?: (error: any) => boolean;
+    retryCondition?: (error: unknown) => boolean;
   } = {}
 ): Promise<T> {
   const {
@@ -67,7 +67,7 @@ export async function withRetry<T>(
     retryCondition = (error) => !(error instanceof AppError && error.isOperational),
   } = options;
 
-  let lastError: any;
+  let lastError: unknown;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -162,7 +162,7 @@ export class CircuitBreaker {
 /**
  * Safe async wrapper that catches and logs errors
  */
-export function safeAsync<T extends any[], R>(
+export function safeAsync<T extends unknown[], R>(
   fn: (...args: T) => Promise<R>
 ): (...args: T) => Promise<R | undefined> {
   return async (...args: T): Promise<R | undefined> => {

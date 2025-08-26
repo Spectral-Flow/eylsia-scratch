@@ -2,7 +2,7 @@ import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
 import { Elysia, t } from 'elysia';
 import { loadConfig, validateConfig } from './config';
-import { ElevenLabsService } from './elevenlabs';
+import { ElevenLabsService, type Voice } from './elevenlabs';
 import {
   AppError,
   CircuitBreaker,
@@ -11,8 +11,31 @@ import {
   withRetry,
   withTimeout,
 } from './error-handling';
+import { type ChatMessage, LLMService } from './llm';
 import { logger } from './logger';
-import { LLMService, type ChatMessage } from './llm';
+
+// TypeScript interfaces for WebSocket and Chat
+interface WebSocketClient {
+  send: (data: string) => void;
+  readyState?: number;
+}
+
+interface ChatHistoryMessage {
+  id: string;
+  from: 'user' | 'assistant';
+  text: string;
+  timestamp: string;
+  type?: string;
+}
+
+interface WebSocketMessage {
+  type: 'text' | 'voice-request' | 'voice-response';
+  content: string;
+  voiceId?: string;
+  originalMessageId?: string;
+  timestamp?: string;
+  audioData?: string;
+}
 
 // Load and validate configuration
 const config = loadConfig();
@@ -31,8 +54,8 @@ const llmService = new LLMService(config.llm);
 const llmCircuitBreaker = new CircuitBreaker(3, 30000);
 
 // Store for connected WebSocket clients and chat history
-const connectedClients = new Set<any>();
-const chatHistory: any[] = [];
+const connectedClients = new Set<WebSocketClient>();
+const chatHistory: ChatHistoryMessage[] = [];
 const MAX_CHAT_HISTORY = 100;
 
 const app = new Elysia()
@@ -62,6 +85,7 @@ const app = new Elysia()
   // Request ID middleware
   .derive((context) => ({
     requestId: context.headers['x-request-id'] || crypto.randomUUID(),
+    startTime: Date.now(),
   }))
   // Logging middleware
   .onBeforeHandle((context) => {
@@ -76,7 +100,7 @@ const app = new Elysia()
     logger.info('Request completed', {
       requestId: context.requestId,
       status: context.set.status || 200,
-      duration: Date.now() - (context.request as any).startTime,
+      duration: Date.now() - context.startTime,
     });
   })
   // Enhanced error handling
@@ -132,7 +156,7 @@ const app = new Elysia()
   // Health endpoint with enhanced checks
   .get('/health', async (context) => {
     const llmHealth = await llmService.checkHealth();
-    
+
     const health = {
       status: 'ok',
       timestamp: context.now(),
@@ -282,7 +306,7 @@ const app = new Elysia()
       });
 
       return {
-        voices: voices.map((voice: any) => ({
+        voices: voices.map((voice: Voice) => ({
           id: voice.voice_id,
           name: voice.name,
           category: voice.category,
@@ -337,7 +361,7 @@ const app = new Elysia()
     async message(ws, message) {
       // Handle different message types from Elysia WebSocket
       let messageStr: string;
-      
+
       logger.info('Raw WebSocket message received', {
         messageType: typeof message,
         messageConstructor: message?.constructor?.name,
@@ -373,9 +397,9 @@ const app = new Elysia()
 
       try {
         // Try to parse as JSON for enhanced messages
-        let parsedMessage: any;
+        let parsedMessage: WebSocketMessage;
         try {
-          parsedMessage = JSON.parse(messageStr);
+          parsedMessage = JSON.parse(messageStr) as WebSocketMessage;
         } catch {
           // Fallback to plain text
           parsedMessage = { type: 'text', content: messageStr };
@@ -424,7 +448,7 @@ const app = new Elysia()
             // Convert chat history to LLM format for context
             const conversationHistory: ChatMessage[] = chatHistory
               .slice(-10) // Last 10 messages for context
-              .map((msg: any) => ({
+              .map((msg: ChatHistoryMessage) => ({
                 role: (msg.from === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
                 content: msg.text,
               }))
@@ -464,11 +488,15 @@ const app = new Elysia()
               });
 
               // If voice synthesis is requested and available for the assistant response
-              if (parsedMessage.type === 'voice-request' && elevenLabsService.isAvailable()) {
+              if (
+                parsedMessage.type === 'voice-request' &&
+                elevenLabsService.isAvailable() &&
+                llmResponse.message
+              ) {
                 try {
                   const voiceResponse = await elevenLabsCircuitBreaker.execute(async () => {
                     return await elevenLabsService.textToSpeech({
-                      text: llmResponse.message!,
+                      text: llmResponse.message as string, // Safe because we checked above
                       voiceId: parsedMessage.voiceId,
                     });
                   });
