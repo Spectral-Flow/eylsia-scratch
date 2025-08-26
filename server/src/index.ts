@@ -335,7 +335,41 @@ const app = new Elysia()
     },
 
     async message(ws, message) {
-      const messageStr = String(message);
+      // Handle different message types from Elysia WebSocket
+      let messageStr: string;
+      
+      logger.info('Raw WebSocket message received', {
+        messageType: typeof message,
+        messageConstructor: message?.constructor?.name,
+        messageKeys: message && typeof message === 'object' ? Object.keys(message) : null,
+        message: typeof message === 'object' ? JSON.stringify(message) : message,
+      });
+
+      if (typeof message === 'string') {
+        messageStr = message;
+      } else if (message instanceof Buffer) {
+        messageStr = message.toString('utf8');
+      } else if (typeof message === 'object' && message !== null) {
+        // If it's an object, try to find the actual message content
+        if ('data' in message) {
+          messageStr = String(message.data);
+        } else if ('text' in message) {
+          messageStr = String(message.text);
+        } else if ('content' in message) {
+          messageStr = String(message.content);
+        } else {
+          // As fallback, try to stringify the entire object
+          messageStr = JSON.stringify(message);
+        }
+      } else {
+        messageStr = String(message);
+      }
+
+      logger.info('Processed WebSocket message', {
+        originalType: typeof message,
+        messageStr,
+        messageLength: messageStr.length,
+      });
 
       try {
         // Try to parse as JSON for enhanced messages
@@ -350,6 +384,8 @@ const app = new Elysia()
         logger.info('WebSocket message received', {
           type: parsedMessage.type || 'text',
           contentLength: parsedMessage.content?.length || messageStr.length,
+          parsedMessageContent: parsedMessage.content,
+          messageStr: messageStr,
         });
 
         const userMessage = {
@@ -359,6 +395,11 @@ const app = new Elysia()
           timestamp: new Date().toISOString(),
           id: crypto.randomUUID(),
         };
+
+        logger.info('Created user message', {
+          userMessage,
+          textType: typeof userMessage.text,
+        });
 
         // Add user message to chat history
         chatHistory.push(userMessage);

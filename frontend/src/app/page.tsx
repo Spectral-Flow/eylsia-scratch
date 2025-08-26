@@ -46,7 +46,9 @@ export default function Home() {
 
       ws.onmessage = (event) => {
         try {
+          console.log('Raw WebSocket message:', event.data);
           const data = JSON.parse(event.data);
+          console.log('Parsed WebSocket data:', data);
           
           if (data.type === 'message') {
             setMessages(prev => [...prev, {
@@ -62,6 +64,16 @@ export default function Home() {
           } else if (data.type === 'history') {
             // Handle chat history
             setMessages(data.messages || []);
+          } else if (data.type === 'error') {
+            // Handle errors from the server
+            console.error('Server error:', data.message);
+            setMessages(prev => [...prev, {
+              id: Date.now().toString(),
+              type: 'error',
+              from: 'assistant',
+              text: `Error: ${data.message}`,
+              timestamp: new Date().toISOString()
+            }]);
           }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -101,6 +113,11 @@ export default function Home() {
       type: 'text',
       content: inputMessage.trim()
     };
+
+    console.log('Sending message:', message);
+    console.log('Message content type:', typeof message.content);
+    console.log('Message content value:', message.content);
+    console.log('Stringified message:', JSON.stringify(message));
 
     wsRef.current.send(JSON.stringify(message));
     setInputMessage('');
