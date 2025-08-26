@@ -64,6 +64,11 @@ export class ElevenLabsService {
   private isEnabled: boolean;
   private hasRealAPI: boolean = false;
 
+  // Caching for voices to reduce API calls
+  private voicesCache?: Voice[];
+  private voicesCacheExpiry?: number;
+  private readonly VOICES_CACHE_TTL = 300000; // 5 minutes
+
   // Mock voices for development
   private mockVoices: Voice[] = [
     {
@@ -265,12 +270,25 @@ export class ElevenLabsService {
       throw new Error('ElevenLabs service is not available');
     }
 
-    // Use real API if available
-    if (this.hasRealAPI) {
-      return this.getRealVoices();
-    } else {
-      return this.getMockVoices();
+    // Check cache first
+    if (this.voicesCache && this.voicesCacheExpiry && Date.now() < this.voicesCacheExpiry) {
+      logger.debug('Returning cached voices', { count: this.voicesCache.length });
+      return this.voicesCache;
     }
+
+    // Use real API if available
+    let voices: Voice[];
+    if (this.hasRealAPI) {
+      voices = await this.getRealVoices();
+    } else {
+      voices = await this.getMockVoices();
+    }
+
+    // Cache the result
+    this.voicesCache = voices;
+    this.voicesCacheExpiry = Date.now() + this.VOICES_CACHE_TTL;
+
+    return voices;
   }
 
   /**

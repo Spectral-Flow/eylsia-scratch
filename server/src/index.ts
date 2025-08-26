@@ -7,6 +7,7 @@ import {
   AppError,
   CircuitBreaker,
   NotFoundError,
+  RateLimiter,
   ValidationError,
   withRetry,
   withTimeout,
@@ -54,6 +55,15 @@ const elevenLabsCircuitBreaker = new CircuitBreaker(5, 60000);
 const llmService = new LLMService(config.llm);
 const llmCircuitBreaker = new CircuitBreaker(3, 30000);
 
+// Initialize rate limiter for production
+const rateLimiter = new RateLimiter(
+  config.nodeEnv === 'production' ? 100 : 1000, // Stricter limits in production
+  60000 // 1 minute window
+);
+
+// Cleanup rate limiter every 5 minutes
+setInterval(() => rateLimiter.cleanup(), 300000);
+
 // Store for connected WebSocket clients and chat history
 const connectedClients = new Set<WebSocketClient>();
 const chatHistory: ChatHistoryMessage[] = [];
@@ -88,6 +98,43 @@ const app = new Elysia()
     requestId: context.headers['x-request-id'] || crypto.randomUUID(),
     startTime: Date.now(),
   }))
+  // Rate limiting middleware
+  .onBeforeHandle((context) => {
+    // Skip rate limiting for health checks
+    if (context.request.url.includes('/health')) {
+      return;
+    }
+
+    const clientIP =
+      context.headers['x-forwarded-for'] || context.headers['x-real-ip'] || 'unknown';
+
+    if (!rateLimiter.isAllowed(clientIP as string)) {
+      logger.warn('Rate limit exceeded', {
+        clientIP,
+        requestId: context.requestId,
+        url: context.request.url,
+      });
+
+      context.set.status = 429;
+      context.set.headers = {
+        'X-RateLimit-Remaining': '0',
+        'Retry-After': '60',
+      };
+
+      return {
+        error: true,
+        message: 'Too many requests. Please try again later.',
+        requestId: context.requestId,
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    // Add rate limit headers
+    const remaining = rateLimiter.getRemaining(clientIP as string);
+    context.set.headers = {
+      'X-RateLimit-Remaining': remaining.toString(),
+    };
+  })
   // Logging middleware
   .onBeforeHandle((context) => {
     logger.info('Request received', {
@@ -181,6 +228,9 @@ const app = new Elysia()
         nodeVersion: process.version,
         platform: process.platform,
         memory: process.memoryUsage(),
+      },
+      logging: {
+        metrics: logger.getMetrics(),
       },
     };
 
