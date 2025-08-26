@@ -2,7 +2,7 @@
 
 ## Overview
 
-This application includes ElevenLabs voice synthesis integration for real-time voice generation from text.
+This application features **complete ElevenLabs voice synthesis integration** with real API support, intelligent caching, and graceful fallback modes for production-ready voice features.
 
 ## Setup Instructions
 
@@ -74,15 +74,27 @@ The default voice is Rachel (`21m00Tcm4TlvDq8ikWAM`). You can change this in the
 ELEVENLABS_VOICE_ID=your_preferred_voice_id
 ```
 
-### 6. Error Handling
+### 6. Performance Features
+
+The voice integration includes several performance optimizations:
+
+- **Intelligent Caching**: Voice API responses are cached for 5 minutes to reduce API calls
+- **Rate Limiting**: Built-in rate limiting prevents API quota exhaustion
+- **Circuit Breakers**: Automatic failover when API is unavailable
+- **Graceful Degradation**: Falls back to mock mode when real API fails
+- **Memory Management**: Automatic cleanup of old cache entries and rate limit data
+
+### 7. Error Handling
 
 The application includes robust error handling for voice synthesis:
-- Circuit breaker prevents cascading failures
-- Retry logic with exponential backoff
-- Graceful degradation when voice service is unavailable
-- Detailed error logging and user feedback
+- **API Authentication**: Automatic detection and reporting of API key issues
+- **Rate Limit Detection**: Intelligent handling of API quota and rate limits
+- **Network Resilience**: Retry logic with exponential backoff for network errors
+- **Circuit breaker prevents cascading failures**
+- **Detailed error logging and user feedback**
+- **Graceful degradation when voice service is unavailable**
 
-### 7. Testing Without API Key
+### 8. Testing Without API Key
 
 The application works without an ElevenLabs API key:
 - Voice features will be disabled
@@ -91,8 +103,26 @@ The application works without an ElevenLabs API key:
 
 ## Production Considerations
 
-- Set `NODE_ENV=production` in production
-- Monitor API usage and rate limits
-- Consider caching frequently used voice syntheses
-- Implement user authentication for voice features
-- Set up proper logging and monitoring
+### Environment Configuration
+- Set `NODE_ENV=production` for production deployments
+- Configure `LOG_LEVEL=info` or `warn` for production (avoid `debug`)
+- Use proper CORS origins (avoid wildcard `*` in production)
+- Set appropriate rate limiting thresholds
+
+### Monitoring & Performance
+- Monitor API usage and rate limits through the `/health` endpoint
+- Check logging metrics for error rates and performance issues
+- Set up alerts for circuit breaker state changes
+- Monitor memory usage for voice caching
+
+### Security Best Practices
+- Keep ElevenLabs API keys secure and rotate regularly
+- Use environment variables for all sensitive configuration
+- Implement proper authentication for voice features in production
+- Configure firewalls and reverse proxies appropriately
+
+### Scaling Considerations
+- Voice caching reduces API load but increases memory usage
+- Rate limiting is per-instance; consider distributed rate limiting for multiple instances
+- Circuit breakers help prevent cascade failures during API outages
+- Consider caching frequently used voice syntheses externally
