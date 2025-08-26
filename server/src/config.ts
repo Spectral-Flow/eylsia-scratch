@@ -8,6 +8,11 @@ export interface Config {
     apiKey?: string;
     voiceId: string;
   };
+  llm: {
+    endpoint: string;
+    model: string;
+    enabled: boolean;
+  };
   security: {
     allowedOrigins: string[];
   };
@@ -27,8 +32,17 @@ export function loadConfig(): Config {
       apiKey: process.env.ELEVENLABS_API_KEY,
       voiceId: process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM',
     },
+    llm: {
+      endpoint: process.env.LLM_ENDPOINT || 'http://localhost:11434',
+      model: process.env.LLM_MODEL || 'llama3.2',
+      enabled: process.env.LLM_ENABLED !== 'false',
+    },
     security: {
-      allowedOrigins: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+      allowedOrigins: process.env.ALLOWED_ORIGINS?.split(',') || [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'https://*.vercel.app',
+      ],
     },
     logging: {
       level: process.env.LOG_LEVEL || 'info',

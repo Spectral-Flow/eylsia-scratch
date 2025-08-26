@@ -12,6 +12,7 @@ import {
   withTimeout,
 } from './error-handling';
 import { logger } from './logger';
+import { LLMService, type ChatMessage } from './llm';
 
 // Load and validate configuration
 const config = loadConfig();
@@ -26,6 +27,8 @@ logger.info('Starting Elysia server', {
 // Initialize services
 const elevenLabsService = new ElevenLabsService(config.elevenLabs);
 const elevenLabsCircuitBreaker = new CircuitBreaker(5, 60000);
+const llmService = new LLMService(config.llm);
+const llmCircuitBreaker = new CircuitBreaker(3, 30000);
 
 // Store for connected WebSocket clients and chat history
 const connectedClients = new Set<any>();
@@ -128,6 +131,8 @@ const app = new Elysia()
 
   // Health endpoint with enhanced checks
   .get('/health', async (context) => {
+    const llmHealth = await llmService.checkHealth();
+    
     const health = {
       status: 'ok',
       timestamp: context.now(),
@@ -139,6 +144,12 @@ const app = new Elysia()
         elevenLabs: {
           available: elevenLabsService.isAvailable(),
           circuitBreaker: elevenLabsCircuitBreaker.getState(),
+        },
+        llm: {
+          available: llmHealth.available,
+          model: llmHealth.model,
+          error: llmHealth.error,
+          circuitBreaker: llmCircuitBreaker.getState(),
         },
       },
       system: {
@@ -341,59 +352,125 @@ const app = new Elysia()
           contentLength: parsedMessage.content?.length || messageStr.length,
         });
 
-        const response = {
+        const userMessage = {
           type: 'message',
-          from: 'client',
+          from: 'user',
           text: parsedMessage.content || messageStr,
           timestamp: new Date().toISOString(),
           id: crypto.randomUUID(),
         };
 
-        // Add to chat history
-        chatHistory.push(response);
+        // Add user message to chat history
+        chatHistory.push(userMessage);
         if (chatHistory.length > MAX_CHAT_HISTORY) {
           chatHistory.shift();
         }
 
-        // Broadcast to all connected clients
-        const broadcastMessage = JSON.stringify(response);
+        // Broadcast user message to all connected clients
+        const broadcastUserMessage = JSON.stringify(userMessage);
         connectedClients.forEach((client) => {
           try {
-            client.send(broadcastMessage);
+            client.send(broadcastUserMessage);
           } catch (error) {
             logger.warn('Failed to send message to client', error);
             connectedClients.delete(client);
           }
         });
 
-        // If voice synthesis is requested and available
-        if (parsedMessage.type === 'voice-request' && elevenLabsService.isAvailable()) {
+        // Generate LLM response if available
+        if (llmService.isAvailable()) {
           try {
-            const voiceResponse = await elevenLabsCircuitBreaker.execute(async () => {
-              return await elevenLabsService.textToSpeech({
-                text: parsedMessage.content || messageStr,
-                voiceId: parsedMessage.voiceId,
-              });
+            // Convert chat history to LLM format for context
+            const conversationHistory: ChatMessage[] = chatHistory
+              .slice(-10) // Last 10 messages for context
+              .map((msg: any) => ({
+                role: (msg.from === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+                content: msg.text,
+              }))
+              .slice(0, -1); // Remove the current message since we're adding it separately
+
+            const llmResponse = await llmCircuitBreaker.execute(async () => {
+              return await llmService.generateResponse(
+                parsedMessage.content || messageStr,
+                conversationHistory
+              );
             });
 
-            if (voiceResponse.success && voiceResponse.audioData) {
-              // Send voice response back to requesting client
+            if (llmResponse.success && llmResponse.message) {
+              const assistantMessage = {
+                type: 'message',
+                from: 'assistant',
+                text: llmResponse.message,
+                timestamp: new Date().toISOString(),
+                id: crypto.randomUUID(),
+              };
+
+              // Add assistant message to chat history
+              chatHistory.push(assistantMessage);
+              if (chatHistory.length > MAX_CHAT_HISTORY) {
+                chatHistory.shift();
+              }
+
+              // Broadcast assistant response to all connected clients
+              const broadcastAssistantMessage = JSON.stringify(assistantMessage);
+              connectedClients.forEach((client) => {
+                try {
+                  client.send(broadcastAssistantMessage);
+                } catch (error) {
+                  logger.warn('Failed to send message to client', error);
+                  connectedClients.delete(client);
+                }
+              });
+
+              // If voice synthesis is requested and available for the assistant response
+              if (parsedMessage.type === 'voice-request' && elevenLabsService.isAvailable()) {
+                try {
+                  const voiceResponse = await elevenLabsCircuitBreaker.execute(async () => {
+                    return await elevenLabsService.textToSpeech({
+                      text: llmResponse.message!,
+                      voiceId: parsedMessage.voiceId,
+                    });
+                  });
+
+                  if (voiceResponse.success && voiceResponse.audioData) {
+                    // Send voice response back to requesting client
+                    ws.send(
+                      JSON.stringify({
+                        type: 'voice-response',
+                        audioData: voiceResponse.audioData.toString('base64'),
+                        originalMessageId: assistantMessage.id,
+                        timestamp: new Date().toISOString(),
+                      })
+                    );
+                  }
+                } catch (error) {
+                  logger.error('Voice synthesis for WebSocket failed', error);
+                  ws.send(
+                    JSON.stringify({
+                      type: 'voice-error',
+                      error: 'Voice synthesis failed',
+                      originalMessageId: assistantMessage.id,
+                      timestamp: new Date().toISOString(),
+                    })
+                  );
+                }
+              }
+            } else {
+              // Send error response if LLM failed
               ws.send(
                 JSON.stringify({
-                  type: 'voice-response',
-                  audioData: voiceResponse.audioData.toString('base64'),
-                  originalMessageId: response.id,
+                  type: 'error',
+                  message: llmResponse.error || 'Failed to generate response',
                   timestamp: new Date().toISOString(),
                 })
               );
             }
           } catch (error) {
-            logger.error('Voice synthesis for WebSocket failed', error);
+            logger.error('LLM response generation failed', error);
             ws.send(
               JSON.stringify({
-                type: 'voice-error',
-                error: 'Voice synthesis failed',
-                originalMessageId: response.id,
+                type: 'error',
+                message: 'Failed to generate AI response',
                 timestamp: new Date().toISOString(),
               })
             );
@@ -459,6 +536,7 @@ logger.info('Server started successfully', {
   swagger: `http://localhost:${app.server?.port}/swagger`,
   features: {
     voiceEnabled: elevenLabsService.isAvailable(),
+    llmEnabled: llmService.isAvailable(),
     environment: config.nodeEnv,
   },
 });
@@ -467,4 +545,7 @@ console.log(`🚀 Elysia server is running at http://localhost:${app.server?.por
 console.log(`📖 Swagger documentation available at http://localhost:${app.server?.port}/swagger`);
 console.log(
   `🎤 Voice synthesis: ${elevenLabsService.isAvailable() ? 'ENABLED' : 'DISABLED (no API key)'}`
+);
+console.log(
+  `🤖 Local LLM: ${llmService.isAvailable() ? `ENABLED (${config.llm.model})` : 'DISABLED'}`
 );
